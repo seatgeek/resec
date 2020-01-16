@@ -2,6 +2,14 @@ version: '3'
 
 services:
 
+  playground:
+    build:
+        context: .
+        dockerfile: playground.Dockerfile
+    entrypoint: bash -c 'dnsmasq --no-daemon --server=/consul/`dig +short consul-server-bootstrap`#8600'
+    networks:
+        - resec-demo
+
   consul-agent-1: &consul-agent
     image: consul:latest
     networks:
