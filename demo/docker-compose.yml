@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: playground.Dockerfile
-    entrypoint: bash -c "while true; do sleep 10; done"
+    entrypoint: bash -c "./wait-for-redis.sh redis-master.service.dc1.consul && ./redis-counter.sh"
     networks:
       - resec-demo
     dns:
