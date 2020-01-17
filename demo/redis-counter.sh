@@ -24,10 +24,15 @@ while true
 do
   redis_counter=$(echo incr $key | redis-cli --raw -h $redis_master)
   local_counter=$(( local_counter + 1 ))
-  echo {\"local_counter\": $local_counter, \"redis_counter\": $redis_counter}
 
-  if [ $redis_counter != $local_counter ]; then
-    echo "local and redis counter are out of sync!"
+  if [ -z "$redis_counter" ]; then
+    echo "ERROR: redis request failed"
+  else
+    echo {\"local_counter\": $local_counter, \"redis_counter\": $redis_counter}
+
+    if [ $redis_counter != $local_counter ]; then
+      echo "ERROR: local and redis counter are out of sync!"
+    fi
   fi
 
   sleep $interval
