@@ -1,20 +1,25 @@
-version: '3'
+version: "3.7"
 
 services:
-
   playground:
     build:
-        context: .
-        dockerfile: playground.Dockerfile
-    entrypoint: bash -c 'dnsmasq --no-daemon --server=/consul/`dig +short consul-server-bootstrap`#8600'
+      context: .
+      dockerfile: playground.Dockerfile
+    entrypoint: bash -c "while true; do sleep 10; done"
     networks:
-        - resec-demo
+      - resec-demo
+    dns:
+      - 172.16.238.10
+      - 172.16.238.11
+      - 172.16.238.12
 
   consul-agent-1: &consul-agent
     image: consul:latest
+    command: "agent -retry-join consul-server-bootstrap -client 0.0.0.0 -dns-port 53"
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=
     networks:
       - resec-demo
-    command: "agent -retry-join consul-server-bootstrap -client 0.0.0.0"
 
   consul-agent-2:
     <<: *consul-agent
@@ -24,19 +29,27 @@ services:
 
   consul-server-1: &consul-server
     <<: *consul-agent
-    command: "agent -server -retry-join consul-server-bootstrap -client 0.0.0.0"
+    command: "agent -server -retry-join consul-server-bootstrap -client 0.0.0.0 -dns-port 53"
+    networks:
+      resec-demo:
+        ipv4_address: 172.16.238.12
 
   consul-server-2:
     <<: *consul-server
+    networks:
+      resec-demo:
+        ipv4_address: 172.16.238.11
 
   consul-server-bootstrap:
     <<: *consul-agent
     ports:
       - "8400:8400"
       - "8500:8500"
-      - "8600:8600"
-    command: "agent -server -bootstrap-expect 3 -ui -client 0.0.0.0"
-
+      - "8600:53"
+    command: "agent -server -bootstrap-expect 3 -ui -client 0.0.0.0 -dns-port 53"
+    networks:
+      resec-demo:
+        ipv4_address: 172.16.238.10
 
   consul-resec-1:
     <<: *consul-agent
@@ -47,7 +60,7 @@ services:
     hostname: "redis-resec-1"
     networks:
       - resec-demo
-  
+
   resec-1: &resec
     image: seatgeek/resec
     hostname: "resec"
@@ -64,7 +77,7 @@ services:
     <<: *consul-agent
     hostname: "consul-resec-2"
   redis-resec-2:
-    <<: *redis 
+    <<: *redis
     hostname: "redis-resec-2"
   resec-2:
     <<: *resec
@@ -79,7 +92,7 @@ services:
     <<: *consul-agent
     hostname: "consul-resec-3"
   redis-resec-3:
-    <<: *redis 
+    <<: *redis
     hostname: "redis-resec-3"
   resec-3:
     <<: *resec
@@ -90,7 +103,8 @@ services:
       - consul-resec-3
       - redis-resec-3
 
-
-
 networks:
   resec-demo:
+    ipam:
+      config:
+        - subnet: "172.16.238.0/24"
