@@ -27,7 +27,7 @@ func NewReconciler(c *cli.Context) (*Reconciler, error) {
 		consulStateCh:          consulConnection.GetStateReader(),
 		debugSignalCh:          make(chan os.Signal, 1),
 		forceReconcileInterval: c.Duration("healthcheck-timeout"),
-		reconcileCh:            make(chan interface{}, 10),
+		reconcileCh:            make(chan interface{}, 1),
 		redisCommandCh:         redisConnection.CommandChWriter(),
 		redisStateCh:           redisConnection.StateChReader(),
 		signalCh:               make(chan os.Signal, 1),

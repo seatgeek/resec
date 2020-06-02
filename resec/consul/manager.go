@@ -5,6 +5,8 @@ import (
 	"time"
 
 	consulapi "github.com/hashicorp/consul/api"
+	consulwatch "github.com/hashicorp/consul/api/watch"
+
 	"github.com/seatgeek/resec/resec/state"
 )
 
@@ -287,57 +289,57 @@ func (m *Manager) getConsulMasterDetails() (serviceName string, serviceTag strin
 func (m *Manager) watchConsulMasterService() {
 	serviceName, serviceTag := m.getConsulMasterDetails()
 
-	q := &consulapi.QueryOptions{
-		WaitIndex: 1,
-		WaitTime:  30 * time.Second,
+	watchPlanParams := map[string]interface{}{
+		"type":        "service",
+		"service":     serviceName,
+		"passingonly": true,
 	}
 
-	// How often we should force a refresh of external state?
-	duration := 250 * time.Millisecond
-	timer := time.NewTimer(duration)
+	if serviceTag != "" {
+		watchPlanParams["tag"] = serviceTag
+	}
+
+	watchPlan, err := consulwatch.Parse(watchPlanParams)
+	if err != nil {
+		m.logger.Panicf("[ERROR] couldn't create a watch plan", "error", err)
+	}
+
+	watchPlan.Handler = func(idx uint64, data interface{}) {
+		switch masterConsulServiceStatus := data.(type) {
+		case []*consulapi.ServiceEntry:
+			m.logger.Debugf("Received update for master from consul")
+			m.masterService <- masterConsulServiceStatus
+
+		default:
+			m.logger.Errorf("Got an unknown interface from Consul %s", masterConsulServiceStatus)
+		}
+	}
+
+	go m.consulWatchRun(watchPlan, watchPlanParams)
 
 	for {
 		select {
+		case masterInfo := <-m.masterService:
 
-		case <-m.stopCh:
-			return
-
-		case <-timer.C:
-			services, meta, err := m.client.ServiceHealth(serviceName, serviceTag, true, q)
-			m.handleConsulError(err)
-			if err != nil {
-				timer.Reset(m.backoff.ForAttempt(m.backoff.Attempt()))
-				continue
-			}
-
-			timer.Reset(duration)
-
-			if q.WaitIndex == meta.LastIndex {
-				m.logger.Debugf("No change in master service health")
-				continue
-			}
-
-			q.WaitIndex = meta.LastIndex
-
-			if len(services) == 0 {
+			if len(masterInfo) == 0 {
 				m.logger.Warn("No (healthy) master service found in Consul catalog")
 				continue
 			}
 
-			if len(services) > 1 {
+			if len(masterInfo) > 1 {
 				m.logger.Error("More than 1 (healthy) master service found in Consul catalog")
 				continue
 			}
 
-			master := services[0]
+			master := masterInfo[0]
 
 			if m.state.MasterAddr == master.Service.Address && m.state.MasterPort == master.Service.Port {
 				m.logger.Debugf("No change in master service configuration")
 				continue
 			}
 
-			// handle If master is registred in consul with port only
-			// Use node IP insted of service IP
+			// handle If master is registered in consul with port only
+			// Use node IP instead of service IP
 			if master.Service.Address != "" {
 				m.state.MasterAddr = master.Service.Address
 			} else {
@@ -350,6 +352,12 @@ func (m *Manager) watchConsulMasterService() {
 			m.logger.Infof("Saw change in master service. New IP+Port is: %s:%d", m.state.MasterAddr, m.state.MasterPort)
 			m.masterCh <- true
 		}
+	}
+}
+
+func (m *Manager) consulWatchRun(wp *consulwatch.Plan, params map[string]interface{}) {
+	if err := wp.Run(m.clientConfig.Address); err != nil {
+		m.logger.Errorf("Error watching for %s changes %s", params["service"], err)
 	}
 }
 
