@@ -76,7 +76,7 @@ func (r *Reconciler) Run() {
 	// Start the Redis reader
 	r.sendRedisCommand(redis.StartCommand)
 
-	// how long to wait between forced renconcile (e.g. to keep TTL happy)
+	// how long to wait between forced reconcile (e.g. to keep TTL happy)
 	periodicReconcileCh := time.NewTicker(r.forceReconcileInterval)
 
 	// Debounce reconciler update events if they happen in rapid succession
@@ -225,7 +225,7 @@ func (r *Reconciler) evaluate() resultType {
 			return ResultRunAsSlave
 		}
 
-		// if sycing with redis master, lets wait for it to complete
+		// if syncing with redis master, lets wait for it to complete
 		if r.isMasterSyncInProgress() {
 			return ResultMasterSyncInProgress
 		}

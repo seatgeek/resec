@@ -26,7 +26,7 @@ func (c *Consul) IsMaster() bool {
 }
 
 // isConsulSlave return whether the Consul lock is held or not
-// if its *not* hold, the Reids under management should become slave
+// if its *not* hold, the Redis under management should become slave
 func (c *Consul) IsSlave() bool {
 	return c.Master == false
 }
