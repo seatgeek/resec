@@ -301,7 +301,8 @@ func (m *Manager) watchConsulMasterService() {
 
 	watchPlan, err := consulwatch.Parse(watchPlanParams)
 	if err != nil {
-		m.logger.Panicf("[ERROR] couldn't create a watch plan", "error", err)
+		m.logger.Errorf("couldn't create a consul watch plan %s", err)
+		return
 	}
 
 	watchPlan.Handler = func(idx uint64, data interface{}) {
