@@ -45,8 +45,8 @@ func (m *Manager) continuouslyAcquireConsulLeadership() {
 		// if consul master service have changes, immediately try to  claim the lock
 		// since there is a good chance the service changed because the current master
 		// went away
-		case <-m.masterCh:
-			m.acquireConsulLeadership()
+		//case <-m.masterCh:
+		//	m.acquireConsulLeadership()
 
 		// Periodically try to acquire the consul lock
 		case <-timer.C:
@@ -305,37 +305,26 @@ func (m *Manager) watchConsulMasterService() {
 	}
 
 	watchPlan.Handler = func(idx uint64, data interface{}) {
-		switch masterConsulServiceStatus := data.(type) {
+		switch masterInfo := data.(type) {
 		case []*consulapi.ServiceEntry:
 			m.logger.Debugf("Received update for master from consul")
-			m.masterService <- masterConsulServiceStatus
-
-		default:
-			m.logger.Errorf("Got an unknown interface from Consul %s", masterConsulServiceStatus)
-		}
-	}
-
-	go m.consulWatchRun(watchPlan, watchPlanParams)
-
-	for {
-		select {
-		case masterInfo := <-m.masterService:
-
+			m.logger.Info("started processing consul update")
 			if len(masterInfo) == 0 {
 				m.logger.Warn("No (healthy) master service found in Consul catalog")
-				continue
+				return
 			}
 
 			if len(masterInfo) > 1 {
 				m.logger.Error("More than 1 (healthy) master service found in Consul catalog")
-				continue
+				return
 			}
 
 			master := masterInfo[0]
+			m.logger.Infof("processing update from consul %v", *master)
 
 			if m.state.MasterAddr == master.Service.Address && m.state.MasterPort == master.Service.Port {
 				m.logger.Debugf("No change in master service configuration")
-				continue
+				return
 			}
 
 			// handle If master is registered in consul with port only
@@ -347,12 +336,18 @@ func (m *Manager) watchConsulMasterService() {
 			}
 
 			m.state.MasterPort = master.Service.Port
+			// if we received the update from watch it means consul is healthy
+			m.state.Healthy = true
+			m.logger.Infof("Saw change in master service. New IP+Port is: %s:%d", m.state.MasterAddr, m.state.MasterPort)
 			m.emit()
 
-			m.logger.Infof("Saw change in master service. New IP+Port is: %s:%d", m.state.MasterAddr, m.state.MasterPort)
-			m.masterCh <- true
+		default:
+			m.logger.Errorf("Got an unknown interface from Consul %s", masterInfo)
 		}
 	}
+
+	// starting Watch
+	go m.consulWatchRun(watchPlan, watchPlanParams)
 }
 
 func (m *Manager) consulWatchRun(wp *consulwatch.Plan, params map[string]interface{}) {
