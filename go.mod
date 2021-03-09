@@ -10,7 +10,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/seatgeek/logrus-gelf-formatter v0.0.0-20180829220724-ce23ecb3f367
-	github.com/sirupsen/logrus v1.6.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.6.1
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/urfave/cli.v1 v1.20.0
