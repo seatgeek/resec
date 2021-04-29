@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"net/http"
 
 	"github.com/bep/debounce"
 	"github.com/seatgeek/resec/resec/consul"
@@ -46,6 +47,8 @@ type Reconciler struct {
 	redisStateCh           <-chan state.Redis    // Read-only channel to get Redis state updates
 	signalCh               chan os.Signal        // signal channel (OS / signal shutdown)
 	stopCh                 chan interface{}      // stop channel (internal shutdown)
+	stateServerOn          bool                  // activate the state server?
+	stateListenAddress     string                // address:port for status server
 	sync.Mutex
 }
 
@@ -81,6 +84,11 @@ func (r *Reconciler) Run() {
 
 	// Debounce reconciler update events if they happen in rapid succession
 	debounced := debounce.New(100 * time.Millisecond)
+
+	// Start the state server
+	if r.stateServerOn {
+		go r.stateServer()
+	}
 
 	for {
 		select {
@@ -240,6 +248,41 @@ func (r *Reconciler) evaluate() resultType {
 	}
 
 	return ResultUnknown
+}
+
+func (r *Reconciler) stateServer() {
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request){
+		w.Header().Set("Content-Type", "application/json")
+		jData, _ := r.MarshalJSON()
+		w.Write(jData)
+	})
+
+	http.HandleFunc("/redis", func(w http.ResponseWriter, req *http.Request){
+		fmt.Fprintf(w, r.prettyPrint(r.redisState))
+	})
+
+	http.HandleFunc("/consul", func(w http.ResponseWriter, req *http.Request){
+		fmt.Fprintf(w, r.prettyPrint(r.consulState))
+	})
+
+	http.HandleFunc("/info", func(w http.ResponseWriter, req *http.Request){
+		fmt.Fprintf(w, r.redisState.InfoString)
+	})
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request){
+		if r.redisState.IsReadyToServe() {
+			w.Write([]byte("ok"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("fail"))
+		}
+	})
+
+	r.logger.Info("Starting state server at ", r.stateListenAddress)
+
+	if err := http.ListenAndServe(r.stateListenAddress, nil); err != nil {
+		r.logger.Fatal(err)
+	}
 }
 
 func (r *Reconciler) stateReader() {
