@@ -258,15 +258,15 @@ func (r *Reconciler) stateServer() {
 	})
 
 	http.HandleFunc("/redis", func(w http.ResponseWriter, req *http.Request){
-		fmt.Fprintf(w, r.prettyPrint(r.redisState))
+		fmt.Fprint(w, r.prettyPrint(r.redisState))
 	})
 
 	http.HandleFunc("/consul", func(w http.ResponseWriter, req *http.Request){
-		fmt.Fprintf(w, r.prettyPrint(r.consulState))
+		fmt.Fprint(w, r.prettyPrint(r.consulState))
 	})
 
 	http.HandleFunc("/info", func(w http.ResponseWriter, req *http.Request){
-		fmt.Fprintf(w, r.redisState.InfoString)
+		fmt.Fprint(w, r.redisState.InfoString)
 	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request){
