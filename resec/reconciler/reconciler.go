@@ -252,6 +252,10 @@ func (r *Reconciler) evaluate() resultType {
 
 func (r *Reconciler) stateServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/" {
+			http.NotFound(w, req)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		jData, _ := r.MarshalJSON()
 		w.Write(jData)
@@ -261,12 +265,12 @@ func (r *Reconciler) stateServer() {
 		fmt.Fprint(w, r.prettyPrint(r.redisState))
 	})
 
-	http.HandleFunc("/consul", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(w, r.prettyPrint(r.consulState))
+	http.HandleFunc("/redis/info", func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprint(w, r.redisState.InfoString)
 	})
 
-	http.HandleFunc("/info", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprint(w, r.redisState.InfoString)
+	http.HandleFunc("/consul", func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprint(w, r.prettyPrint(r.consulState))
 	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
