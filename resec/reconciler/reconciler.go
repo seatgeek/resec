@@ -3,11 +3,11 @@ package reconciler
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"syscall"
 	"time"
-	"net/http"
 
 	"github.com/bep/debounce"
 	"github.com/seatgeek/resec/resec/consul"
@@ -251,25 +251,25 @@ func (r *Reconciler) evaluate() resultType {
 }
 
 func (r *Reconciler) stateServer() {
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request){
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		jData, _ := r.MarshalJSON()
 		w.Write(jData)
 	})
 
-	http.HandleFunc("/redis", func(w http.ResponseWriter, req *http.Request){
+	http.HandleFunc("/redis", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, r.prettyPrint(r.redisState))
 	})
 
-	http.HandleFunc("/consul", func(w http.ResponseWriter, req *http.Request){
+	http.HandleFunc("/consul", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, r.prettyPrint(r.consulState))
 	})
 
-	http.HandleFunc("/info", func(w http.ResponseWriter, req *http.Request){
+	http.HandleFunc("/info", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, r.redisState.InfoString)
 	})
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request){
+	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
 		if r.redisState.IsReadyToServe() {
 			w.Write([]byte("ok"))
 		} else {

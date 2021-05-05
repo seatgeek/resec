@@ -26,7 +26,7 @@ func (r *Redis) IsUnhealthy() bool {
 // Check if Instance is up, has synced all data and is ready to accept connections
 // Used as an health check during deployment.
 func (r *Redis) IsReadyToServe() bool {
-	if r.Healthy && r.Ready && ! r.Info.Loading &&
+	if r.Healthy && r.Ready && !r.Info.Loading &&
 		(r.IsRedisMaster() || r.Info.MasterLinkUp && !r.Info.MasterSyncInProgress) {
 		return true
 	}
