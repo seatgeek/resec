@@ -3,6 +3,7 @@ package reconciler
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"syscall"
@@ -46,6 +47,8 @@ type Reconciler struct {
 	redisStateCh           <-chan state.Redis    // Read-only channel to get Redis state updates
 	signalCh               chan os.Signal        // signal channel (OS / signal shutdown)
 	stopCh                 chan interface{}      // stop channel (internal shutdown)
+	stateServerOn          bool                  // activate the state server?
+	stateListenAddress     string                // address:port for status server
 	sync.Mutex
 }
 
@@ -81,6 +84,11 @@ func (r *Reconciler) Run() {
 
 	// Debounce reconciler update events if they happen in rapid succession
 	debounced := debounce.New(100 * time.Millisecond)
+
+	// Start the state server
+	if r.stateServerOn {
+		go r.stateServer()
+	}
 
 	for {
 		select {
@@ -240,6 +248,67 @@ func (r *Reconciler) evaluate() resultType {
 	}
 
 	return ResultUnknown
+}
+
+func (r *Reconciler) overviewPage() string {
+	o := "<html><head><title>Resec</title><body><h2>Resec Overview</h2><p>"
+	if r.redisState.IsReadyToServe() {
+		o += "<b>Instance is ready</b><p>"
+	}
+
+	if r.redisState.Info.Loading {
+		o += "<b>Redis is loading data from disk</b><br>"
+	}
+	if r.redisState.Info.MasterSyncInProgress {
+		o += "<b>Redis is syncing data from master</b><br>"
+	}
+	if !r.redisState.Info.MasterLinkUp && r.redisState.Info.Role != "master" {
+		o += "<b>Link to master is down </b><br>"
+	}
+
+	o += "<ul>" +
+		"<li> <a href=./info>redis info</a>" +
+		"<li> <a href=./state>resec state</a>" +
+		"<li> <a href=./health>healthcheck</a>" +
+		"</ul>"
+
+	o += "</body></html>"
+	return o
+}
+
+func (r *Reconciler) stateServer() {
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/" {
+			http.NotFound(w, req)
+			return
+		}
+		w.Write([]byte(r.overviewPage()))
+	})
+
+	http.HandleFunc("/state", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		jData, _ := r.MarshalJSON()
+		w.Write(jData)
+	})
+
+	http.HandleFunc("/info", func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprint(w, r.redisState.InfoString)
+	})
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
+		if r.redisState.IsReadyToServe() {
+			w.Write([]byte("ok"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("fail"))
+		}
+	})
+
+	r.logger.Info("Starting state server at ", r.stateListenAddress)
+
+	if err := http.ListenAndServe(r.stateListenAddress, nil); err != nil {
+		r.logger.Fatal(err)
+	}
 }
 
 func (r *Reconciler) stateReader() {

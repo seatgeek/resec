@@ -115,6 +115,19 @@ func main() {
 			Usage:   "Password for the Redis server",
 			EnvVars: []string{"REDIS_PASSWORD"},
 		},
+		&cli.BoolFlag{
+			Name:    "state-server",
+			Usage:   "Activate the state server",
+			Value:   false,
+			EnvVars: []string{"STATE_SERVER"},
+			Aliases: []string{"s"},
+		},
+		&cli.StringFlag{
+			Name:    "state-listen-addr",
+			Value:   "0.0.0.0:8080",
+			Usage:   "IP:Port of the status interface",
+			EnvVars: []string{"STATE_LISTEN_ADDR"},
+		},
 	}
 	app.Before = func(c *cli.Context) error {
 		level, err := log.ParseLevel(c.String("log-level"))
