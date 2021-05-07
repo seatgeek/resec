@@ -33,7 +33,7 @@ func NewReconciler(c *cli.Context) (*Reconciler, error) {
 		signalCh:               make(chan os.Signal, 1),
 		stopCh:                 make(chan interface{}, 1),
 		stateServerOn:          c.Bool("state-server"),
-		stateListenAddress:     c.String("state-listen-address"),
+		stateListenAddress:     c.String("state-listen-addr"),
 	}
 
 	signal.Notify(reconciler.signalCh, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)

@@ -77,7 +77,7 @@ HEALTHCHECK_TIMEOUT   | 2s             |
 REDIS_ADDR            | 127.0.0.1:6379 |
 REDIS_PASSWORD        |                |
 STATE_SERVER          | False          | Activates simple web server for internal state and health check
-STATE_LISTEN_ADDRESS  | 0.0.0.0:8080   | 
+STATE_LISTEN_ADDR     | 0.0.0.0:8080   | 
 LOG_LEVEL             | INFO           | Options are "DEBUG", "INFO", "WARN", "ERROR"
 LOG_FORMAT            | text           | Options are "text", "json", "gelf"
 

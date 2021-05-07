@@ -123,10 +123,10 @@ func main() {
 			Aliases: []string{"s"},
 		},
 		&cli.StringFlag{
-			Name:    "state-listen-address",
+			Name:    "state-listen-addr",
 			Value:   "0.0.0.0:8080",
 			Usage:   "IP:Port of the status interface",
-			EnvVars: []string{"STATE_LISTEN_ADDRESS"},
+			EnvVars: []string{"STATE_LISTEN_ADDR"},
 		},
 	}
 	app.Before = func(c *cli.Context) error {
