@@ -40,6 +40,21 @@ There are 2 options to work with services:
 
 If redis becomes unhealthy resec will stop the leader election. As soon as redis will become healthy again, resec will start the operation from the beginning.
 
+### State interface and health check
+
+You can activate the state interface with `STATE_SERVER`. 
+With this you can access the internal states of resec and the info output of the associated redis instance over http. 
+
+```
+/        Overview page
+/state   combined states as json
+/info    info output from redis
+/health  health check 
+```
+
+Additionally, an healthcheck endpoint is exposed under `/health`. It switches from "fail"/503 to "ok"/200 after the redis instance is synced with the cluster and ready to serve. 
+This can be used for deployment automation. See [examples](./tree/master/example) for a Nomadconfig that uses this. 
+
 ## Usage
 
 ### Environment variables
@@ -61,6 +76,8 @@ HEALTHCHECK_INTERVAL  | 5s             |
 HEALTHCHECK_TIMEOUT   | 2s             |
 REDIS_ADDR            | 127.0.0.1:6379 |
 REDIS_PASSWORD        |                |
+STATE_SERVER          | False          | Activates simple web server for internal state and health check
+STATE_LISTEN_ADDRESS  | 0.0.0.0:8080   | 
 LOG_LEVEL             | INFO           | Options are "DEBUG", "INFO", "WARN", "ERROR"
 LOG_FORMAT            | text           | Options are "text", "json", "gelf"
 
@@ -93,7 +110,7 @@ Please see [the local development guide](https://github.com/seatgeek/resec/blob/
 
 ### Run the application
 
-* with nomad:
+* with nomad (look into [examples](./tree/master/example) for a more complex Nomadfile):
 
 ```hcl
 job "resec" {

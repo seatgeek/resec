@@ -1,0 +1,124 @@
+// Redis/Resec cluster in Nomad with blue/green deployment and metrics
+//
+// On deployment, 3 more instances are spun up and connected to the cluster by resec.
+// After all data is synced and the cluster is stable for 1min the old instances are terminated
+// and resec promotes one of the new instances to Master
+
+job "resec" {
+  datacenters = ["dc1"]
+  type        = "service"
+
+  update {
+    max_parallel = 1
+    canary = 1
+    auto_promote = true
+    min_healthy_time = "10s"
+  }
+
+  group "cache" {
+    count = 3
+
+    update {
+      max_parallel = 3
+      canary = 3
+      min_healthy_time = "1m"
+      healthy_deadline = "15m"
+      progress_deadline = "20m"
+    }
+
+    network {
+      port  "db"  {
+        to = 6379
+      }
+      port  "resec"  {
+        to = 8080
+      }
+      port  "metrics" {
+        to = 9121
+      }
+    }
+
+    task "redis" {
+      driver = "docker"
+      config {
+        image = "redis:alpine"
+        command = "redis-server"
+        args = [
+          "/local/redis.conf"
+        ]
+        ports = ["db"]
+
+      }
+      // Let Redis know how much memory he can use not to be killed by OOM
+      template {
+        data = <<EORC
+maxmemory {{ env "NOMAD_MEMORY_LIMIT" | parseInt | subtract 16 }}mb
+save ""
+appendonly no
+protected-mode no
+bind 0.0.0.0
+EORC
+        destination   = "local/redis.conf"
+      }
+
+      resources {
+        cpu    = 500
+        memory = 256
+      }
+    }
+
+    task "resec" {
+      driver = "docker"
+      config {
+        image = "seatgeek/resec"
+        ports = ["resec"]
+      }
+
+      env {
+        CONSUL_HTTP_ADDR = "http://${attr.unique.network.ip-address}:8500"
+        REDIS_ADDR = "${NOMAD_ADDR_db}"
+        STATE_SERVER = "1"
+      }
+
+      resources {
+        cpu    = 100
+        memory = 64
+      }
+
+      service {
+        port = "resec"
+        check {
+          type = "http"
+          path = "/health"
+          interval = "10s"
+          timeout = "5s"
+        }
+      }
+    }
+
+    task "metrics" {
+      driver = "docker"
+      config {
+        image = "oliver006/redis_exporter"
+        ports = ["metrics"]
+      }
+
+      env {
+        REDIS_ADDR = "redis://${NOMAD_ADDR_db}"
+        REDIS_EXPORTER_WEB_LISTEN_ADDRESS = "0.0.0.0:9121"
+      }
+
+      resources {
+        cpu = 100
+        memory = 64
+      }
+
+      service {
+        port = "metrics"
+        tags = ["prometheus"]
+      }
+    }
+  }
+}
+
+
