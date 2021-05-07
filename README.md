@@ -53,7 +53,7 @@ With this you can access the internal states of resec and the info output of the
 ```
 
 Additionally, an healthcheck endpoint is exposed under `/health`. It switches from "fail"/503 to "ok"/200 after the redis instance is synced with the cluster and ready to serve. 
-This can be used for deployment automation. See [examples](./tree/master/example) for a Nomadconfig that uses this. 
+This can be used for deployment automation. See [examples](./example) for a Nomadconfig that uses this. 
 
 ## Usage
 
@@ -110,7 +110,7 @@ Please see [the local development guide](https://github.com/seatgeek/resec/blob/
 
 ### Run the application
 
-* with nomad (look into [examples](./tree/master/example) for a more complex Nomadfile):
+* with nomad (look into [examples](./example) for a more complex Nomadfile):
 
 ```hcl
 job "resec" {
