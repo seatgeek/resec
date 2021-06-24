@@ -92,8 +92,80 @@ service "" {
 Please see [the local development guide](https://github.com/seatgeek/resec/blob/master/DEV.md) for information and hints on how to work with Resec locally
 
 ### Run the application
+* with Nomad (version 1.0+)
 
-* with nomad:
+```hcl
+job "resec" {
+  datacenters = ["dc1"]
+  type        = "service"
+
+  update {
+    max_parallel = 1
+    stagger      = "10s"
+  }
+
+  group "cache" {
+    count = 3
+
+    network {
+      port "db" {
+        to = 6379
+      }
+    }
+
+    task "redis" {
+      driver = "docker"
+
+      config {
+        image          = "redis:alpine"
+        auth_soft_fail = true
+
+        command = "redis-server"
+
+        args = [
+          "/local/redis.conf"
+        ]
+
+        ports = ["db"]
+      }
+
+      // Let Redis know how much memory he can use not to be killed by OOM
+      template {
+        data        = <<EORC
+maxmemory {{ env "NOMAD_MEMORY_LIMIT" | parseInt | subtract 16 }}mb
+EORC
+        destination = "local/redis.conf"
+      }
+
+      resources {
+        cpu    = 500
+        memory = 256
+      }
+    }
+
+    task "resec" {
+      driver = "docker"
+
+      config {
+        image          = "seatgeek/resec"
+        auth_soft_fail = true
+      }
+
+      env {
+        CONSUL_HTTP_ADDR = "http://${attr.unique.network.ip-address}:8500"
+        REDIS_ADDR       = "${NOMAD_ADDR_db}"
+      }
+
+      resources {
+        cpu    = 100
+        memory = 64
+      }
+    }
+  }
+}
+```
+
+* with Nomad (version < 1.0):
 
 ```hcl
 job "resec" {
