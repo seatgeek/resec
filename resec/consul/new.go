@@ -63,6 +63,8 @@ func NewConnection(c *cli.Context, redisConfig redis.Config) (*Manager, error) {
 		} else {
 			consulConfig.announceAddr = redisConfig.Address
 		}
+	} else {
+		consulConfig.announceAddr = announceAddr
 	}
 
 	var err error
