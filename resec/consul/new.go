@@ -2,6 +2,7 @@ package consul
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -65,12 +66,13 @@ func NewConnection(c *cli.Context, redisConfig redis.Config) (*Manager, error) {
 		}
 	}
 
-	var err error
-	consulConfig.announceHost = strings.Split(consulConfig.announceAddr, ":")[0]
-	consulConfig.announcePort, err = strconv.Atoi(strings.Split(consulConfig.announceAddr, ":")[1])
+	announceHost, announcePort, err := net.SplitHostPort(consulConfig.announceAddr)
 	if err != nil {
 		return nil, fmt.Errorf("Trouble extracting port number from [%s]", redisConfig.Address)
 	}
+	
+	consulConfig.announceHost = announceHost
+	consulConfig.announcePort = strconv.Atoi(announcePort)
 
 	instance := &Manager{
 		backoff: &backoff.Backoff{
